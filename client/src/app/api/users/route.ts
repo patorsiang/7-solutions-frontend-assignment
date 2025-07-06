@@ -1,6 +1,16 @@
 export const dynamic = "force-static";
 
-const summarizeUsers = (users: any) => {
+const summarizeUsers = (
+  users: Array<{
+    company: { department?: string };
+    gender: "male" | "female";
+    age: number;
+    hair?: { color?: string };
+    firstName: string;
+    lastName: string;
+    address?: { postalCode?: string };
+  }>
+) => {
   if (!users || !Array.isArray(users)) {
     throw new Error("Invalid user data");
   }
