@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, Dispatch, SetStateAction } from "react";
+import {
+  useMemo,
+  useState,
+  Dispatch,
+  SetStateAction,
+  useRef,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 import { Grid, Stack } from "@mui/material";
 import { gridSize, SlackStyle } from "@/app/const/style";
 import { CustomizedButton } from "./CustomizedButton";
@@ -19,21 +26,67 @@ export default function FilterColumnsLayout() {
   const [unselectedItems, setUnselectedItems] = useState<Data>(initialItems);
   const [selectedItems, setSelectedItems] = useState<Data>([]);
 
+  // Store timeout IDs to allow cancellation
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+
+  const defaultTimeout = 5000;
+
   const handleMutateItems = (
     addFunction: Dispatch<SetStateAction<Data>>,
     removeFunction: Dispatch<SetStateAction<Data>>,
-    item: Item
+    item: Item,
+    timeout: number = defaultTimeout
   ) => {
-    addFunction((prev) => [...prev, item]);
-    removeFunction((prev) => prev.filter((i) => i.name !== item.name));
+    // Always cancel any previously scheduled timeout
+    const existingTimeout = timeoutsRef.current.get(item.name);
+    if (existingTimeout) {
+      console.log("canceling existing timeout for", item.name);
+      clearTimeout(existingTimeout);
+      timeoutsRef.current.delete(item.name);
+    }
+
+    if (timeout === 0) {
+      // Move immediately
+      addFunction((prev) => [...prev, item]);
+      removeFunction((prev) => prev.filter((i) => i.name !== item.name));
+      return;
+    }
+
+    // Move after delay
+    const timeoutId = setTimeout(() => {
+      addFunction((prev) => [...prev, item]);
+      removeFunction((prev) => prev.filter((i) => i.name !== item.name));
+      timeoutsRef.current.delete(item.name);
+    }, timeout);
+
+    timeoutsRef.current.set(item.name, timeoutId);
   };
 
   const handleSelectItem = (item: Item) => {
-    handleMutateItems(setSelectedItems, setUnselectedItems, item);
+    handleMutateItems(setSelectedItems, setUnselectedItems, item, 0);
+    handleMutateItems(setUnselectedItems, setSelectedItems, item);
   };
 
-  const handleUnselectItem = (item: Item) => {
-    handleMutateItems(setUnselectedItems, setSelectedItems, item);
+  const handleUnselectItem = (
+    e: ReactMouseEvent<HTMLButtonElement>,
+    item: Item
+  ) => {
+    e.stopPropagation();
+    handleMutateItems(setUnselectedItems, setSelectedItems, item, 0);
+  };
+
+  const handleSelectedTypeBackToUnselected = (type: string) => {
+    const itemsToMove = selectedItems.filter((item) => item.type === type);
+    itemsToMove.forEach((item, idx) => {
+      handleMutateItems(
+        setUnselectedItems,
+        setSelectedItems,
+        item,
+        idx * (defaultTimeout / itemsToMove.length)
+      );
+    });
   };
 
   return (
@@ -52,28 +105,34 @@ export default function FilterColumnsLayout() {
           ))}
         </Stack>
       </Grid>
-      <FilterColumns name="Fruits">
+      <FilterColumns
+        name="Fruits"
+        onClick={() => handleSelectedTypeBackToUnselected("Fruit")}
+      >
         <Stack sx={{ ...SlackStyle }}>
           {selectedItems
             .filter((item) => item.type == "Fruit")
             .map((item) => (
               <CustomizedButton
                 key={item.name}
-                onClick={() => handleUnselectItem(item)}
+                onClick={(e) => handleUnselectItem(e, item)}
               >
                 {item.name}
               </CustomizedButton>
             ))}
         </Stack>
       </FilterColumns>
-      <FilterColumns name="Vegetables">
+      <FilterColumns
+        name="Vegetables"
+        onClick={() => handleSelectedTypeBackToUnselected("Vegetable")}
+      >
         <Stack sx={{ ...SlackStyle }}>
           {selectedItems
             .filter((item) => item.type == "Vegetable")
             .map((item) => (
               <CustomizedButton
                 key={item.name}
-                onClick={() => handleUnselectItem(item)}
+                onClick={(e) => handleUnselectItem(e, item)}
               >
                 {item.name}
               </CustomizedButton>

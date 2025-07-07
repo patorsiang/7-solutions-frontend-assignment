@@ -5,14 +5,17 @@ import { gridSize } from "@/app/const/style";
 export const FilterColumns = ({
   children,
   name,
+  onClick,
 }: {
   children: ReactNode;
   name: string;
+  onClick?: () => void;
 }) => {
   return (
     <Grid
       size={gridSize}
       sx={{ border: "1px solid", borderColor: "primary.light" }}
+      onClick={onClick}
     >
       <Box
         sx={{
